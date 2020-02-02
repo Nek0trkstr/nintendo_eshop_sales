@@ -1,17 +1,20 @@
 import React from 'react';
 import Game from './Game'
 import Menu from './Menu'
-import GamesData from './salesdemo'
 import './App.css';
 
 class App extends React.Component {
   constructor() {
     super();
     this.state = {
-      gamesData: GamesData,
-      sortState: 'none'
+      gamesData: '',
+      gamesToRender: '',
+      sortState: 'none',
+      categories: {},
+      categoryState: 'none',
     };
-    this.handleFilterChange = this.handleFilterChange.bind(this)
+    this.handleSortChange = this.handleSortChange.bind(this);
+    this.handleCategoryChange = this.handleCategoryChange.bind(this);
 
     this.sortStateToSortMethod = { 
       'none': () => {return 0},
@@ -21,10 +24,10 @@ class App extends React.Component {
   }
 
   render(){
-    let sortingMethod = this.sortStateToSortMethod[this.state.sortState]
-    var gamesDataClone = [...this.state.gamesData]
-    var sortedGames = gamesDataClone.sort(sortingMethod)
-    var gameComponents = sortedGames.map(
+    const sortingMethod = this.sortStateToSortMethod[this.state.sortState]
+    const gamesDataClone = [...this.state.gamesToRender]
+    const sortedGames = gamesDataClone.sort(sortingMethod)
+    const gameComponents = sortedGames.map(
       game => { 
         return <Game 
           key={game.fs_id} 
@@ -39,8 +42,11 @@ class App extends React.Component {
     return (
       <div>
         <Menu 
-          handleFilterChange={this.handleFilterChange}
+          handleSortChange={this.handleSortChange}
           sortValue={this.state.sortState}
+          categoriesSet={this.state.categories}
+          categoryState={this.state.categoryState}
+          handleCategoryChange={this.handleCategoryChange}
         />
         <div id="gamesContainer">
           {gameComponents}
@@ -49,10 +55,51 @@ class App extends React.Component {
     );
   }
 
-  handleFilterChange(event){
-    let sortValue = event.target.value
+  handleSortChange(event){
+    const sortValue = event.target.value;
     this.setState(() => {
       return {sortState: sortValue}
+    })
+  }
+
+  handleCategoryChange(event){
+    const categoryValue = event.target.value;
+    const gamesDataClone = [...this.state.gamesData]
+    let filteredGames = {};
+    if (categoryValue.toLowerCase() === 'none'){
+      filteredGames = gamesDataClone;
+    } else {
+      filteredGames = gamesDataClone.filter((game) => game.pretty_game_categories_txt.includes(categoryValue))
+    }
+    this.setState(() => {
+      return {
+        categoryState: categoryValue,
+        gamesToRender: filteredGames,
+      }
+    })
+  }
+
+  componentDidMount(){
+    fetch('https://cors-anywhere.herokuapp.com/https://searching.nintendo-europe.com/en/select?q=*&fq=type%3AGAME%20AND%20((price_has_discount_b%3A%22true%22))%20AND%20sorting_title%3A*%20AND%20*%3A*&sort=score%20desc%2C%20date_from%20desc&start=0&rows=999&wt=json&bf=linear(ms(priority%2CNOW%2FHOUR)%2C1.1e-11%2C0)&bq=deprioritise_b%3Atrue%5E-1000&json.wrf=nindo.net.jsonp.jsonpCallback_946_7100000038045')
+    .then(res => res.text())
+    .then(dataStr => {
+      let startIndex = dataStr.indexOf('(')
+      console.log(startIndex, dataStr.length)
+      let reponseData = dataStr.substr(startIndex + 1, dataStr.length - 50)
+      return JSON.parse(reponseData).response.docs
+    })
+    .then((gamesJson) => {
+      let categoriesSet = new Set();
+      gamesJson.forEach(element => {
+        element.pretty_game_categories_txt.forEach((category) => categoriesSet.add(category))
+      })
+      this.setState(() => {
+        return {
+          categories: categoriesSet,
+          gamesData: gamesJson,
+          gamesToRender: gamesJson
+        }
+      })
     })
   }
 }
