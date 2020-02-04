@@ -1,6 +1,6 @@
 import React from 'react';
 import Game from './Game'
-import Menu from './Menu'
+import AppMenu from './Menu'
 import './App.css';
 
 class App extends React.Component {
@@ -36,12 +36,13 @@ class App extends React.Component {
           price_regular={game.price_regular_f}
           price_discounted={game.price_discounted_f}
           url={game.url}
+          excerpt={game.excerpt}
         />
       }
     );
     return (
       <div>
-        <Menu 
+        <AppMenu 
           handleSortChange={this.handleSortChange}
           sortValue={this.state.sortState}
           categoriesSet={this.state.categories}
