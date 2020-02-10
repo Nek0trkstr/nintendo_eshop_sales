@@ -1,21 +1,24 @@
 import React from 'react';
-import Game from './Game'
-import AppMenu from './Menu'
+import Game from './Game';
+import AppMenu from './Menu';
+import LinearProgress from '@material-ui/core/LinearProgress';
 import './App.css';
 
 class App extends React.Component {
   constructor() {
     super();
     this.state = {
+      loaded: false,
       gamesData: '',
       gamesToRender: '',
       sortState: 'none',
       categories: {},
       categoryState: 'none',
+      searchState: '',
     };
     this.handleSortChange = this.handleSortChange.bind(this);
     this.handleCategoryChange = this.handleCategoryChange.bind(this);
-
+    this.handleSearchChange = this.handleSearchChange.bind(this);
     this.sortStateToSortMethod = { 
       'none': () => {return 0},
       'highToLow': (a,b) => -1 * (a.price_discounted_f - b.price_discounted_f),
@@ -42,12 +45,14 @@ class App extends React.Component {
     );
     return (
       <div>
+        {!this.state.loaded && <LinearProgress style={{alignSelf: 'flex-end'}} variant="query" color="secondary" />}
         <AppMenu 
           handleSortChange={this.handleSortChange}
           sortValue={this.state.sortState}
           categoriesSet={this.state.categories}
           categoryState={this.state.categoryState}
           handleCategoryChange={this.handleCategoryChange}
+          handleSearchChange={this.handleSearchChange}
         />
         <div id="gamesContainer">
           {gameComponents}
@@ -63,21 +68,47 @@ class App extends React.Component {
     })
   }
 
+  handleSearchChange(event){
+    const searchValue = event.target.value;
+    const gamesDataClone = [...this.state.gamesData]
+    const filterParams = {categoryState: this.state.categoryState, searchState: searchValue}
+    let filteredGames = {};
+    filteredGames = gamesDataClone.filter((game) => this.isGamePassesFilters(game, filterParams));
+    this.setState(()=>{
+      return {
+        searchState: searchValue,
+        gamesToRender: filteredGames,
+      }
+    });
+  }
+
   handleCategoryChange(event){
     const categoryValue = event.target.value;
     const gamesDataClone = [...this.state.gamesData]
+    const filterParams = {categoryState: categoryValue, searchState: this.state.searchState}
     let filteredGames = {};
-    if (categoryValue.toLowerCase() === 'none'){
-      filteredGames = gamesDataClone;
-    } else {
-      filteredGames = gamesDataClone.filter((game) => game.pretty_game_categories_txt.includes(categoryValue))
-    }
+    filteredGames = gamesDataClone.filter((game) => this.isGamePassesFilters(game, filterParams))
     this.setState(() => {
       return {
         categoryState: categoryValue,
         gamesToRender: filteredGames,
       }
-    })
+    });
+  }
+
+  isGamePassesFilters(game, filterParams){
+    const { categoryState, searchState} = filterParams;
+    if (categoryState.toLowerCase() !== 'none') {
+      if (!game.pretty_game_categories_txt.includes(categoryState)) {
+        return false;
+      }
+    }
+    if (searchState.toLowerCase() !== '') {
+      if (!game.title.toLowerCase().includes(searchState)){
+        return false;
+      }
+    }
+    return true;
   }
 
   componentDidMount(){
@@ -85,7 +116,6 @@ class App extends React.Component {
     .then(res => res.text())
     .then(dataStr => {
       let startIndex = dataStr.indexOf('(')
-      console.log(startIndex, dataStr.length)
       let reponseData = dataStr.substr(startIndex + 1, dataStr.length - 50)
       return JSON.parse(reponseData).response.docs
     })
@@ -96,6 +126,7 @@ class App extends React.Component {
       })
       this.setState(() => {
         return {
+          loaded: true,
           categories: categoriesSet,
           gamesData: gamesJson,
           gamesToRender: gamesJson
